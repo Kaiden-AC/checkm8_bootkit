@@ -53,6 +53,16 @@ supported platforms:
 
 Set **LIBBOOTKIT_DEBUG** environment variable to 1 to enable verbose logging
 
+## A6 (iPhone 5) with a6meowing
+
+An A6 pwned with [a6meowing](https://github.com/LukeZGD/a6meowing) works with the `kbag` and `batch` VERBs out of the box.
+
+Note that a6meowing patches the ROM to relocate the DFU download address to **0x10020000** (instead of ipwndfu's 0x10000000), so code that reads or writes the download buffer — like the KBAG decryption path — must use that address. This tree therefore defaults `s5l8950x` to `loadaddr = 0x10020000`.
+
+Set the **LIBBOOTKIT_LOADADDR** environment variable to override the load address (dec, hex, or octal) for your specific payload setup; for example, an ipwndfu-pwned A6 needs `LIBBOOTKIT_LOADADDR=0x10000000`.
+
+The **demote** VERB does not depend on the load address and works unchanged.
+
 ## Building
 
 Requirements:

@@ -56,6 +56,12 @@ int aes_op(irecv_client_t client, const rom_config_t *config, uint8_t kbag[KBAG_
         uint32_t key;
         uint32_t user_key;
         uint32_t user_iv;
+        /*
+         * The on-device handler pushes key/user_key/user_iv/arg7 onto the
+         * stack for the crypto function. Keep arg7 explicit so execute()
+         * doesn't leak stack garbage into the command buffer.
+         */
+        uint32_t reserved;
     } args = { 0 };
 
     args.op = AES_OP_DECRYPT;

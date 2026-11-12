@@ -34,7 +34,11 @@ int validate_device(irecv_client_t client) {
         return -1;
     }
 
-    if (!strstr(info->serial_string, "PWND:[checkm8]")) {
+    /*
+     * Different checkm8 payloads stamp different serial strings:
+     * ipwndfu uses "PWND:[checkm8]", a6meowing uses "PWND:[meowing]".
+     */
+    if (!strstr(info->serial_string, "PWND:[checkm8]") && !strstr(info->serial_string, "PWND:[meowing]")) {
         printf("non-pwned-DFU device found\n");
         return -1;
     }
@@ -232,9 +236,14 @@ int execute(irecv_client_t client, const rom_config_t *config, uint8_t *output, 
     struct {
         usb_command_done_t header;
         uint8_t buffer[MAX_OUTPUT_LEN];
-    } resp;
+    } resp = { 0 };
 
-    trigger_command(client, (uint8_t *)&resp, sizeof(usb_command_done_t) + output_len);
+    int response_len = trigger_command(client, (uint8_t *)&resp, sizeof(usb_command_done_t) + output_len);
+
+    if (response_len < 0 || (size_t)response_len != sizeof(usb_command_done_t) + output_len) {
+        printf("failed to receive response from device\n");
+        return -1;
+    }
 
     if (resp.header.magic != USB_COMMAND_DONE_MAGIC || resp.header.magic2 != USB_COMMAND_DONE_MAGIC) {
         printf("invalid response from device\n");

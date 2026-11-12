@@ -4,6 +4,8 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
 typedef struct {
     uint32_t memmove;
@@ -126,7 +128,16 @@ static const rom_config_t rom_configs[] = {
     {
         .cpid = 0x8950,
         .platform = "s5l8950x",
-        .loadaddr = 0x10000000,
+        /*
+         * a6meowing patches the ROM to relocate the DFU load address to 0x10020000
+         * (see shellcode/patch/patch.c in a6meowing) and its usb_0xA1_2 handler
+         * reads commands and writes responses at 0x10020000.
+         *
+         * ipwndfu, on the other hand, uses a load address of 0x10000000.
+         * Override with the LIBBOOTKIT_LOADADDR environment variable if your
+         * device was pwned with a different payload.
+         */
+        .loadaddr = 0x10020000,
         .loadsize = 0x60000,
         .demotion_reg = 0x3F500000,
         .aes_crypto_cmd = 0x7300 + 1,
@@ -229,10 +240,31 @@ static const rom_config_t rom_configs[] = {
     }
 };
 
+static rom_config_t loadaddr_override;
+
 static const rom_config_t *get_config(uint32_t cpid) {
     for (int i = 0; i < sizeof(rom_configs) / sizeof(rom_config_t); i++) {
         const rom_config_t *config = &rom_configs[i];
         if (config->cpid == cpid) {
+            /*
+             * Allow overriding the DFU buffer/load address at runtime.
+             * Useful for pwning with a custom payload that relocates the
+             * image load address somewhere else (e.g. ipwndfu-pwned A6
+             * uses 0x10000000 instead of a6meowing's 0x10020000).
+             */
+            const char *override = getenv("LIBBOOTKIT_LOADADDR");
+            if (override) {
+                char *end = NULL;
+                unsigned long value = strtoul(override, &end, 0);
+                if (end && *end == '\0' && value != 0) {
+                    memmove(&loadaddr_override, config, sizeof(loadaddr_override));
+                    loadaddr_override.loadaddr = (uint32_t)value;
+                    return &loadaddr_override;
+                }
+
+                printf("ignoring invalid LIBBOOTKIT_LOADADDR=\"%s\"\n", override);
+            }
+
             return config;
         }
     }
